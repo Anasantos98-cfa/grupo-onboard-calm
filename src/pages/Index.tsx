@@ -1,13 +1,12 @@
 import SupplierForm from "@/components/supplier/SupplierForm";
+import grupoLogo from "@/assets/grupo-logo.webp";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background py-12 md:py-16 px-4 animate-fade-in">
       <div className="max-w-[640px] mx-auto mb-10 text-center space-y-4">
         <div className="flex justify-center mb-6">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-xl">G</span>
-          </div>
+          <img src={grupoLogo} alt="Grupo logo" className="h-10 w-auto" />
         </div>
         <h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
           Supplier Information Form
