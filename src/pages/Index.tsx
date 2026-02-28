@@ -1,5 +1,5 @@
 import SupplierForm from "@/components/supplier/SupplierForm";
-import grupoLogo from "@/assets/grupo-logo.webp";
+import grupoLogo from "@/assets/grupo-logo.svg";
 
 const Index = () => {
   return (
