@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Layout from "./components/supplier/Layout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AdminNewSupplier from "./pages/AdminNewSupplier";
@@ -20,10 +21,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/admin/new" element={<AdminNewSupplier />} />
-          <Route path="/admin/suppliers" element={<AdminSuppliers />} />
-          <Route path="/admin/suppliers/:id" element={<AdminSupplierDetail />} />
-          <Route path="/supplier/:token" element={<SupplierToken />} />
+          <Route element={<Layout />}>
+            <Route path="/admin/new" element={<AdminNewSupplier />} />
+            <Route path="/admin/suppliers" element={<AdminSuppliers />} />
+            <Route path="/admin/suppliers/:id" element={<AdminSupplierDetail />} />
+            <Route path="/supplier/:token" element={<SupplierToken />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
