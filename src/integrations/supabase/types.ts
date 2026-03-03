@@ -16,16 +16,31 @@ export type Database = {
     Tables: {
       suppliers: {
         Row: {
+          acesso_dados_pessoais: boolean | null
+          acesso_sistemas_internos: boolean | null
+          approved_at: string | null
+          approved_by: string | null
           bank_name: string
           billing_email: string
+          categoria: string | null
+          codigo_interno_1: string | null
+          codigo_interno_2: string | null
+          codigo_interno_3: string | null
+          comentarios: string | null
           commercial_name: string | null
+          condicoes_pagamento: string | null
           consent_given: boolean
           country: string
           created_at: string
           currency: string
           currency_other: string | null
+          custo_medio_mensal: string | null
+          data_fim: string | null
+          data_inicio: string | null
           email: string
+          entidade: string | null
           entity_type: string
+          finance_approved_by: string | null
           fiscal_address: string
           iban: string
           iban_proof_url: string | null
@@ -34,48 +49,43 @@ export type Database = {
           nif_vat: string
           phone: string
           primary_contact: string
+          projeto_area: string | null
+          relevancia_iso: string | null
+          responsavel: string | null
           service_product: string
           status: string
+          supplier_submitted_at: string | null
           swift: string
+          token: string | null
           vat_regime: string
           website_linkedin: string | null
         }
         Insert: {
-          bank_name: string
-          billing_email: string
-          commercial_name?: string | null
-          consent_given?: boolean
-          country: string
-          created_at?: string
-          currency: string
-          currency_other?: string | null
-          email: string
-          entity_type: string
-          fiscal_address: string
-          iban: string
-          iban_proof_url?: string | null
-          id?: string
-          legal_name: string
-          nif_vat: string
-          phone: string
-          primary_contact: string
-          service_product: string
-          status?: string
-          swift: string
-          vat_regime: string
-          website_linkedin?: string | null
-        }
-        Update: {
+          acesso_dados_pessoais?: boolean | null
+          acesso_sistemas_internos?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
           bank_name?: string
           billing_email?: string
+          categoria?: string | null
+          codigo_interno_1?: string | null
+          codigo_interno_2?: string | null
+          codigo_interno_3?: string | null
+          comentarios?: string | null
           commercial_name?: string | null
+          condicoes_pagamento?: string | null
           consent_given?: boolean
           country?: string
           created_at?: string
           currency?: string
           currency_other?: string | null
+          custo_medio_mensal?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
           email?: string
+          entidade?: string | null
           entity_type?: string
+          finance_approved_by?: string | null
           fiscal_address?: string
           iban?: string
           iban_proof_url?: string | null
@@ -84,9 +94,59 @@ export type Database = {
           nif_vat?: string
           phone?: string
           primary_contact?: string
+          projeto_area?: string | null
+          relevancia_iso?: string | null
+          responsavel?: string | null
           service_product?: string
           status?: string
+          supplier_submitted_at?: string | null
           swift?: string
+          token?: string | null
+          vat_regime?: string
+          website_linkedin?: string | null
+        }
+        Update: {
+          acesso_dados_pessoais?: boolean | null
+          acesso_sistemas_internos?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_name?: string
+          billing_email?: string
+          categoria?: string | null
+          codigo_interno_1?: string | null
+          codigo_interno_2?: string | null
+          codigo_interno_3?: string | null
+          comentarios?: string | null
+          commercial_name?: string | null
+          condicoes_pagamento?: string | null
+          consent_given?: boolean
+          country?: string
+          created_at?: string
+          currency?: string
+          currency_other?: string | null
+          custo_medio_mensal?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          email?: string
+          entidade?: string | null
+          entity_type?: string
+          finance_approved_by?: string | null
+          fiscal_address?: string
+          iban?: string
+          iban_proof_url?: string | null
+          id?: string
+          legal_name?: string
+          nif_vat?: string
+          phone?: string
+          primary_contact?: string
+          projeto_area?: string | null
+          relevancia_iso?: string | null
+          responsavel?: string | null
+          service_product?: string
+          status?: string
+          supplier_submitted_at?: string | null
+          swift?: string
+          token?: string | null
           vat_regime?: string
           website_linkedin?: string | null
         }

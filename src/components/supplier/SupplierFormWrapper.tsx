@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle, Loader2, RotateCcw, ShieldCheck, XCircle, Clock } from "lucide-react";
+import { CheckCircle, Loader2, RotateCcw, ShieldCheck, XCircle, Clock, Copy, Link, AlertTriangle } from "lucide-react";
 import FormSection from "./FormSection";
 import FormField from "./FormField";
 import FormSelect from "./FormSelect";
@@ -38,7 +38,6 @@ const currencies = [
   { value: "OTHER", label: "Outro" },
 ];
 
-// Supplier fields
 interface SupplierData {
   legal_name: string;
   commercial_name: string;
@@ -60,7 +59,6 @@ interface SupplierData {
   swift: string;
 }
 
-// Admin internal request fields
 interface AdminData {
   responsavel: string;
   projeto_area: string;
@@ -72,7 +70,6 @@ interface AdminData {
   data_fim: string;
 }
 
-// Backoffice fields
 interface BackofficeData {
   acesso_dados_pessoais: boolean;
   acesso_sistemas_internos: boolean;
@@ -114,13 +111,13 @@ const adminRequiredFields = ["responsavel", "projeto_area", "categoria", "entida
 
 interface SupplierFormWrapperProps {
   mode: FormMode;
-  /** Mock supplier data for admin-review mode */
-  reviewData?: SupplierData;
-  /** Mock admin data for admin-review mode */
-  reviewAdminData?: AdminData;
+  /** Token for supplier mode */
+  token?: string;
+  /** Supplier ID for admin-review mode */
+  supplierId?: string;
 }
 
-const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierFormWrapperProps) => {
+const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperProps) => {
   const [supplierData, setSupplierData] = useState<SupplierData>(initialSupplierData);
   const [adminData, setAdminData] = useState<AdminData>(initialAdminData);
   const [backofficeData, setBackofficeData] = useState<BackofficeData>(initialBackofficeData);
@@ -129,6 +126,94 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [recordId, setRecordId] = useState<string | null>(null);
+  const [recordStatus, setRecordStatus] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<string | null>(null);
+
+  // Fetch supplier data for supplier mode (by token) or admin-review mode (by id)
+  useEffect(() => {
+    const fetchSupplier = async () => {
+      setLoading(true);
+      try {
+        let result: { data: any; error: any };
+
+        if (mode === "supplier" && token) {
+          result = await (supabase.from("suppliers").select("*") as any).eq("token", token).limit(1).maybeSingle();
+        } else if (mode === "admin-review" && supplierId) {
+          result = await supabase.from("suppliers").select("*").eq("id", supplierId).single();
+        } else {
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = result;
+        if (error || !data) {
+          setErrorState(mode === "supplier" ? "Token inválido ou expirado." : "Fornecedor não encontrado.");
+          setLoading(false);
+          return;
+        }
+
+        const d = data as any;
+        setRecordId(d.id);
+        setRecordStatus(d.status);
+
+        setAdminData({
+          responsavel: d.responsavel || "",
+          projeto_area: d.projeto_area || "",
+          categoria: d.categoria || "",
+          entidade: d.entidade || "",
+          custo_medio_mensal: d.custo_medio_mensal || "",
+          comentarios: d.comentarios || "",
+          data_inicio: d.data_inicio || "",
+          data_fim: d.data_fim || "",
+        });
+
+        setSupplierData({
+          legal_name: d.legal_name || "",
+          commercial_name: d.commercial_name || "",
+          entity_type: d.entity_type || "",
+          nif_vat: d.nif_vat || "",
+          country: d.country || "",
+          fiscal_address: d.fiscal_address || "",
+          primary_contact: d.primary_contact || "",
+          email: d.email || "",
+          billing_email: d.billing_email || "",
+          phone: d.phone || "",
+          website_linkedin: d.website_linkedin || "",
+          service_product: d.service_product || "",
+          vat_regime: d.vat_regime || "",
+          currency: d.currency || "",
+          currency_other: d.currency_other || "",
+          bank_name: d.bank_name || "",
+          iban: d.iban || "",
+          swift: d.swift || "",
+        });
+
+        setBackofficeData({
+          acesso_dados_pessoais: d.acesso_dados_pessoais || false,
+          acesso_sistemas_internos: d.acesso_sistemas_internos || false,
+          aprovado_por: d.approved_by || "",
+          aprovado_por_finance: d.finance_approved_by || "",
+          codigo_interno_1: d.codigo_interno_1 || "",
+          codigo_interno_2: d.codigo_interno_2 || "",
+          codigo_interno_3: d.codigo_interno_3 || "",
+          relevancia_iso: d.relevancia_iso || "",
+          condicoes_pagamento: d.condicoes_pagamento || "",
+        });
+      } catch (err) {
+        console.error(err);
+        setErrorState("Erro ao carregar dados.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (mode === "supplier" || mode === "admin-review") {
+      fetchSupplier();
+    }
+  }, [mode, token, supplierId]);
 
   const handleSupplierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -219,10 +304,23 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
     setSubmitting(true);
     try {
       if (mode === "admin-create") {
-        // For now, just show success — no backend logic yet
-        toast.success("Pedido criado com sucesso!");
+        const newToken = crypto.randomUUID();
+        const { error } = await supabase.from("suppliers").insert({
+          token: newToken,
+          status: "waiting_supplier",
+          responsavel: adminData.responsavel.trim(),
+          projeto_area: adminData.projeto_area.trim(),
+          categoria: adminData.categoria,
+          entidade: adminData.entidade,
+          custo_medio_mensal: adminData.custo_medio_mensal.trim() || null,
+          comentarios: adminData.comentarios.trim() || null,
+          data_inicio: adminData.data_inicio,
+          data_fim: adminData.data_fim || null,
+        } as any);
+        if (error) throw error;
+        setCreatedToken(newToken);
         setSubmitted(true);
-      } else if (mode === "supplier") {
+      } else if (mode === "supplier" && recordId) {
         let ibanProofUrl: string | null = null;
         if (file) {
           const fileExt = file.name.split(".").pop();
@@ -232,7 +330,7 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
           ibanProofUrl = fileName;
         }
 
-        const { error: insertError } = await supabase.from("suppliers").insert({
+        const { error } = await supabase.from("suppliers").update({
           legal_name: supplierData.legal_name.trim(),
           commercial_name: supplierData.commercial_name.trim() || null,
           entity_type: supplierData.entity_type,
@@ -253,13 +351,55 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
           swift: supplierData.swift.trim().toUpperCase(),
           iban_proof_url: ibanProofUrl,
           consent_given: true,
-        });
-        if (insertError) throw insertError;
+          status: "submitted",
+          supplier_submitted_at: new Date().toISOString(),
+        } as any).eq("id", recordId);
+        if (error) throw error;
+        setRecordStatus("submitted");
         setSubmitted(true);
       }
     } catch (err: any) {
       console.error(err);
       toast.error("Erro ao submeter. Por favor, tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!recordId) return;
+    setSubmitting(true);
+    try {
+      const updateData: any = { status: newStatus };
+      if (newStatus === "approved") {
+        updateData.approved_at = new Date().toISOString();
+        updateData.approved_by = backofficeData.aprovado_por || "Admin";
+        updateData.finance_approved_by = backofficeData.aprovado_por_finance || null;
+      }
+      // Also save backoffice fields
+      updateData.acesso_dados_pessoais = backofficeData.acesso_dados_pessoais;
+      updateData.acesso_sistemas_internos = backofficeData.acesso_sistemas_internos;
+      updateData.approved_by = backofficeData.aprovado_por || null;
+      updateData.finance_approved_by = backofficeData.aprovado_por_finance || null;
+      updateData.codigo_interno_1 = backofficeData.codigo_interno_1 || null;
+      updateData.codigo_interno_2 = backofficeData.codigo_interno_2 || null;
+      updateData.codigo_interno_3 = backofficeData.codigo_interno_3 || null;
+      updateData.relevancia_iso = backofficeData.relevancia_iso || null;
+      updateData.condicoes_pagamento = backofficeData.condicoes_pagamento || null;
+
+      const { error } = await (supabase.from("suppliers").update(updateData) as any).eq("id", recordId);
+      if (error) throw error;
+      setRecordStatus(newStatus);
+
+      const labels: Record<string, string> = {
+        approved: "Fornecedor aprovado com sucesso.",
+        rejected: "Fornecedor rejeitado.",
+        under_review: "Marcado como Under Review.",
+      };
+      toast.success(labels[newStatus] || "Estado atualizado.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao atualizar estado.");
     } finally {
       setSubmitting(false);
     }
@@ -273,14 +413,99 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
     setConsent(false);
     setErrors({});
     setSubmitted(false);
+    setCreatedToken(null);
   };
+
+  const copyLink = () => {
+    if (!createdToken) return;
+    const link = `${window.location.origin}/supplier/${createdToken}`;
+    navigator.clipboard.writeText(link);
+    toast.success("Link copiado!");
+  };
+
+  // ——— Loading ———
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // ——— Error state ———
+  if (errorState) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
+        <div className="form-card max-w-md w-full text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="h-7 w-7 text-destructive" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-foreground">Erro</h2>
+            <p className="text-muted-foreground leading-relaxed text-sm">{errorState}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ——— Supplier already submitted ———
+  if (mode === "supplier" && recordStatus && recordStatus !== "waiting_supplier") {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
+        <div className="form-card max-w-md w-full text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="h-14 w-14 rounded-full bg-success/10 flex items-center justify-center">
+              <CheckCircle className="h-7 w-7 text-success" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-foreground">Dados já submetidos</h2>
+            <p className="text-muted-foreground leading-relaxed text-sm">
+              Os seus dados já foram submetidos e estão a ser processados pela nossa equipa.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ——— Success screen ———
   if (submitted) {
-    const successTitle = mode === "admin-create" ? "Pedido criado" : "Informação recebida";
-    const successText = mode === "admin-create"
-      ? "O pedido foi registado. O link será gerado para envio ao fornecedor."
-      : "A nossa equipa financeira irá validar os dados e entrar em contacto caso seja necessário.";
+    if (mode === "admin-create" && createdToken) {
+      const supplierLink = `${window.location.origin}/supplier/${createdToken}`;
+      return (
+        <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
+          <div className="form-card max-w-lg w-full text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="h-14 w-14 rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle className="h-7 w-7 text-success" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-foreground">Pedido criado com sucesso</h2>
+              <p className="text-muted-foreground leading-relaxed text-sm">
+                Envie o link abaixo ao fornecedor para que preencha os dados.
+              </p>
+            </div>
+            <div className="bg-muted rounded-lg p-4 flex items-center gap-3">
+              <Link className="h-4 w-4 text-muted-foreground shrink-0" />
+              <code className="text-xs text-foreground break-all flex-1 text-left">{supplierLink}</code>
+              <Button variant="outline" size="sm" onClick={copyLink} className="gap-1.5 shrink-0">
+                <Copy className="h-3.5 w-3.5" />
+                Copiar
+              </Button>
+            </div>
+            <Button onClick={handleReset} variant="outline" className="gap-2">
+              <RotateCcw className="h-4 w-4" />
+              Criar novo pedido
+            </Button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
@@ -291,13 +516,11 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
             </div>
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-foreground">{successTitle}</h2>
-            <p className="text-muted-foreground leading-relaxed text-sm">{successText}</p>
+            <h2 className="text-xl font-semibold text-foreground">Informação recebida</h2>
+            <p className="text-muted-foreground leading-relaxed text-sm">
+              A nossa equipa financeira irá validar os dados e entrar em contacto caso seja necessário.
+            </p>
           </div>
-          <Button onClick={handleReset} variant="outline" className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            {mode === "admin-create" ? "Criar novo pedido" : "Submeter novo fornecedor"}
-          </Button>
         </div>
       </div>
     );
@@ -305,62 +528,63 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
 
   // ——— Admin Review Mode ———
   if (mode === "admin-review") {
-    const displayAdminData = reviewAdminData || initialAdminData;
-    const displaySupplierData = reviewData || initialSupplierData;
+    const statusLabel: Record<string, string> = {
+      draft: "Rascunho",
+      waiting_supplier: "A aguardar fornecedor",
+      submitted: "Submetido",
+      approved: "Aprovado",
+      rejected: "Rejeitado",
+      under_review: "Em revisão",
+    };
 
     return (
       <div className="w-full max-w-[640px] mx-auto animate-fade-in">
         <div className="mb-8 space-y-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Revisão de Fornecedor</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Revisão de Fornecedor</h1>
+            {recordStatus && (
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                recordStatus === "approved" ? "bg-success/10 text-success" :
+                recordStatus === "rejected" ? "bg-destructive/10 text-destructive" :
+                recordStatus === "submitted" ? "bg-blue-100 text-blue-700" :
+                recordStatus === "waiting_supplier" ? "bg-orange-100 text-orange-700" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {statusLabel[recordStatus] || recordStatus}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Reveja a informação submetida e preencha os campos de backoffice.
           </p>
         </div>
 
         <div className="form-card space-y-10">
-          {/* Internal request — read only */}
-          <AdminCreateFields
-            formData={displayAdminData}
-            onChange={() => {}}
-            onSelectChange={() => () => {}}
-            errors={{}}
-            readOnly
-          />
-
+          <AdminCreateFields formData={adminData} onChange={() => {}} onSelectChange={() => () => {}} errors={{}} readOnly />
           <div className="border-t border-border" />
-
-          {/* Supplier data — read only */}
-          <SupplierReadOnly data={displaySupplierData} />
-
+          <SupplierReadOnly data={supplierData} />
           <div className="border-t border-border" />
-
-          {/* Backoffice — editable */}
-          <BackofficeFields
-            formData={backofficeData}
-            onChange={handleBackofficeChange}
-            onSelectChange={handleSelectChange}
-            onCheckboxChange={handleCheckboxChange}
-            errors={errors}
-          />
+          <BackofficeFields formData={backofficeData} onChange={handleBackofficeChange} onSelectChange={handleSelectChange} onCheckboxChange={handleCheckboxChange} errors={errors} />
         </div>
 
-        {/* Action buttons */}
-        <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 mt-6 space-y-4" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
-          <div className="flex flex-wrap gap-3 justify-end">
-            <Button variant="outline" className="gap-2" onClick={() => toast.info("Marcado como Under Review (UI only)")}>
-              <Clock className="h-4 w-4" />
-              Under Review
-            </Button>
-            <Button variant="destructive" className="gap-2" onClick={() => toast.info("Fornecedor rejeitado (UI only)")}>
-              <XCircle className="h-4 w-4" />
-              Rejeitar
-            </Button>
-            <Button className="gap-2 h-12 px-8 rounded-lg text-sm font-semibold bg-primary hover:bg-primary-hover text-primary-foreground" onClick={() => toast.info("Fornecedor aprovado (UI only)")}>
-              <ShieldCheck className="h-4 w-4" />
-              Aprovar fornecedor
-            </Button>
+        {recordStatus !== "approved" && recordStatus !== "rejected" && (
+          <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 mt-6 space-y-4" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
+            <div className="flex flex-wrap gap-3 justify-end">
+              <Button variant="outline" className="gap-2" disabled={submitting} onClick={() => handleStatusChange("under_review")}>
+                <Clock className="h-4 w-4" />
+                Under Review
+              </Button>
+              <Button variant="destructive" className="gap-2" disabled={submitting} onClick={() => handleStatusChange("rejected")}>
+                <XCircle className="h-4 w-4" />
+                Rejeitar
+              </Button>
+              <Button className="gap-2 h-12 px-8 rounded-lg text-sm font-semibold bg-primary hover:bg-primary-hover text-primary-foreground" disabled={submitting} onClick={() => handleStatusChange("approved")}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                Aprovar fornecedor
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -388,25 +612,15 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground leading-relaxed">{subtitle}</p>
-        <ProgressIndicator
-          formData={currentFormData}
-          file={isAdminCreate ? null : file}
-          requiredFields={currentRequired}
-        />
+        <ProgressIndicator formData={currentFormData} file={isAdminCreate ? null : file} requiredFields={currentRequired} />
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-10">
         <div className="form-card space-y-10">
           {isAdminCreate ? (
-            <AdminCreateFields
-              formData={adminData}
-              onChange={handleAdminChange}
-              onSelectChange={handleSelectChange}
-              errors={errors}
-            />
+            <AdminCreateFields formData={adminData} onChange={handleAdminChange} onSelectChange={handleSelectChange} errors={errors} />
           ) : (
             <>
-              {/* 01 · Legal Information */}
               <FormSection title="01 · Informação Legal" helperText="Utilizado exclusivamente para efeitos legais e fiscais.">
                 <FormField label="Nome legal do fornecedor" name="legal_name" required value={supplierData.legal_name} onChange={handleSupplierChange} error={errors.legal_name} />
                 <FormField label="Nome comercial" name="commercial_name" value={supplierData.commercial_name} onChange={handleSupplierChange} />
@@ -418,7 +632,6 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
 
               <div className="border-t border-border" />
 
-              {/* 02 · Contact Information */}
               <FormSection title="02 · Informação de Contacto" helperText="Usaremos estes contactos apenas para comunicação relacionada com serviços e faturação.">
                 <FormField label="Contacto principal" name="primary_contact" required value={supplierData.primary_contact} onChange={handleSupplierChange} error={errors.primary_contact} />
                 <FormField label="Email" name="email" type="email" required value={supplierData.email} onChange={handleSupplierChange} error={errors.email} />
@@ -429,7 +642,6 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
 
               <div className="border-t border-border" />
 
-              {/* 03 · Fiscal Details */}
               <FormSection title="03 · Dados Fiscais">
                 <FormField label="Serviço / Produto" name="service_product" required value={supplierData.service_product} onChange={handleSupplierChange} error={errors.service_product} />
                 <FormSelect label="Regime de IVA" name="vat_regime" required value={supplierData.vat_regime} onChange={handleSelectChange("vat_regime")} options={vatRegimes} error={errors.vat_regime} />
@@ -441,42 +653,22 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
 
               <div className="border-t border-border" />
 
-              {/* 04 · Banking Information */}
               <FormSection title="04 · Dados Bancários">
                 <SecurityNotice />
                 <FormField label="Banco" name="bank_name" required value={supplierData.bank_name} onChange={handleSupplierChange} error={errors.bank_name} />
                 <FormField label="IBAN" name="iban" required value={supplierData.iban} onChange={handleSupplierChange} error={errors.iban} placeholder="PT50 0000 0000 0000 0000 0000 0" />
                 <FormField label="SWIFT / BIC" name="swift" required value={supplierData.swift} onChange={handleSupplierChange} error={errors.swift} />
-                <FileUpload
-                  label="Comprovativo de IBAN"
-                  name="iban_proof"
-                  required
-                  file={file}
-                  onFileChange={(f) => {
-                    setFile(f);
-                    if (errors.file) setErrors((prev) => ({ ...prev, file: undefined }));
-                  }}
-                  error={errors.file}
-                />
+                <FileUpload label="Comprovativo de IBAN" name="iban_proof" required file={file} onFileChange={(f) => { setFile(f); if (errors.file) setErrors((prev) => ({ ...prev, file: undefined })); }} error={errors.file} />
               </FormSection>
             </>
           )}
         </div>
 
-        {/* Sticky Submit Bar */}
         <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 space-y-4" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
           {mode === "supplier" && (
             <>
               <div className="flex items-start gap-3">
-                <Checkbox
-                  id="consent"
-                  checked={consent}
-                  onCheckedChange={(checked) => {
-                    setConsent(checked === true);
-                    if (errors.consent) setErrors((prev) => ({ ...prev, consent: undefined }));
-                  }}
-                  className="mt-0.5"
-                />
+                <Checkbox id="consent" checked={consent} onCheckedChange={(checked) => { setConsent(checked === true); if (errors.consent) setErrors((prev) => ({ ...prev, consent: undefined })); }} className="mt-0.5" />
                 <Label htmlFor="consent" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
                   Declaro que as informações fornecidas são verdadeiras e autorizo o tratamento dos dados para efeitos de gestão contratual e faturação, nos termos legais aplicáveis.
                 </Label>
@@ -484,19 +676,9 @@ const SupplierFormWrapper = ({ mode, reviewData, reviewAdminData }: SupplierForm
               {errors.consent && <p className="text-xs text-destructive">{errors.consent}</p>}
             </>
           )}
-
           <div className="flex justify-end">
             <Button type="submit" disabled={submitting} size="lg" className="h-12 px-8 rounded-lg text-sm font-semibold bg-primary hover:bg-primary-hover text-primary-foreground">
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  A submeter...
-                </>
-              ) : isAdminCreate ? (
-                "Criar pedido"
-              ) : (
-                "Submeter dados"
-              )}
+              {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />A submeter...</>) : isAdminCreate ? "Criar pedido" : "Submeter dados"}
             </Button>
           </div>
         </div>
