@@ -14,7 +14,9 @@ import SecurityNotice from "./SecurityNotice";
 import AdminCreateFields from "./AdminCreateFields";
 import BackofficeFields from "./BackofficeFields";
 import SupplierReadOnly from "./SupplierReadOnly";
+import AuditTrail from "./AuditTrail";
 import { countries } from "@/lib/countries";
+import { createAuditLog } from "@/lib/auditLog";
 
 type FormMode = "admin-create" | "supplier" | "admin-review";
 
@@ -305,7 +307,7 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
     try {
       if (mode === "admin-create") {
         const newToken = crypto.randomUUID();
-        const { error } = await supabase.from("suppliers").insert({
+        const { data: inserted, error } = await supabase.from("suppliers").insert({
           token: newToken,
           status: "waiting_supplier",
           responsavel: adminData.responsavel.trim(),
@@ -316,8 +318,12 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
           comentarios: adminData.comentarios.trim() || null,
           data_inicio: adminData.data_inicio,
           data_fim: adminData.data_fim || null,
-        } as any);
+        } as any).select("id").single();
         if (error) throw error;
+        const newId = (inserted as any).id;
+        // Audit: created + link_generated
+        await createAuditLog({ supplier_id: newId, action: "created", performed_by: "Admin", new_status: "waiting_supplier" });
+        await createAuditLog({ supplier_id: newId, action: "link_generated", performed_by: "Admin", metadata: { token: newToken } });
         setCreatedToken(newToken);
         setSubmitted(true);
       } else if (mode === "supplier" && recordId) {
@@ -355,6 +361,14 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
           supplier_submitted_at: new Date().toISOString(),
         } as any).eq("id", recordId);
         if (error) throw error;
+        // Audit: supplier_submitted
+        await createAuditLog({
+          supplier_id: recordId,
+          action: "supplier_submitted",
+          performed_by: supplierData.email || "Fornecedor",
+          previous_status: "waiting_supplier",
+          new_status: "submitted",
+        });
         setRecordStatus("submitted");
         setSubmitted(true);
       }
@@ -368,27 +382,54 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
 
   const handleStatusChange = async (newStatus: string) => {
     if (!recordId) return;
+
+    // Approval lock: if approved, only allow moving to under_review
+    if (recordStatus === "approved" && newStatus !== "under_review") {
+      toast.error("Fornecedor aprovado. Apenas pode reabrir para revisão.");
+      return;
+    }
+
     setSubmitting(true);
     try {
+      const previousStatus = recordStatus;
       const updateData: any = { status: newStatus };
+
       if (newStatus === "approved") {
         updateData.approved_at = new Date().toISOString();
         updateData.approved_by = backofficeData.aprovado_por || "Admin";
         updateData.finance_approved_by = backofficeData.aprovado_por_finance || null;
       }
-      // Also save backoffice fields
-      updateData.acesso_dados_pessoais = backofficeData.acesso_dados_pessoais;
-      updateData.acesso_sistemas_internos = backofficeData.acesso_sistemas_internos;
-      updateData.approved_by = backofficeData.aprovado_por || null;
-      updateData.finance_approved_by = backofficeData.aprovado_por_finance || null;
-      updateData.codigo_interno_1 = backofficeData.codigo_interno_1 || null;
-      updateData.codigo_interno_2 = backofficeData.codigo_interno_2 || null;
-      updateData.codigo_interno_3 = backofficeData.codigo_interno_3 || null;
-      updateData.relevancia_iso = backofficeData.relevancia_iso || null;
-      updateData.condicoes_pagamento = backofficeData.condicoes_pagamento || null;
+
+      // Save backoffice fields only if not moving from approved (lock)
+      if (recordStatus !== "approved") {
+        updateData.acesso_dados_pessoais = backofficeData.acesso_dados_pessoais;
+        updateData.acesso_sistemas_internos = backofficeData.acesso_sistemas_internos;
+        updateData.approved_by = backofficeData.aprovado_por || null;
+        updateData.finance_approved_by = backofficeData.aprovado_por_finance || null;
+        updateData.codigo_interno_1 = backofficeData.codigo_interno_1 || null;
+        updateData.codigo_interno_2 = backofficeData.codigo_interno_2 || null;
+        updateData.codigo_interno_3 = backofficeData.codigo_interno_3 || null;
+        updateData.relevancia_iso = backofficeData.relevancia_iso || null;
+        updateData.condicoes_pagamento = backofficeData.condicoes_pagamento || null;
+      }
 
       const { error } = await (supabase.from("suppliers").update(updateData) as any).eq("id", recordId);
       if (error) throw error;
+
+      // Determine audit action
+      let auditAction = "status_changed";
+      if (newStatus === "approved") auditAction = "approved";
+      else if (newStatus === "rejected") auditAction = "rejected";
+      else if (previousStatus === "approved" && newStatus === "under_review") auditAction = "reopened";
+
+      await createAuditLog({
+        supplier_id: recordId,
+        action: auditAction,
+        performed_by: backofficeData.aprovado_por || "Admin",
+        previous_status: previousStatus,
+        new_status: newStatus,
+      });
+
       setRecordStatus(newStatus);
 
       const labels: Record<string, string> = {
@@ -564,10 +605,28 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
           <div className="border-t border-border" />
           <SupplierReadOnly data={supplierData} />
           <div className="border-t border-border" />
-          <BackofficeFields formData={backofficeData} onChange={handleBackofficeChange} onSelectChange={handleSelectChange} onCheckboxChange={handleCheckboxChange} errors={errors} />
+          <BackofficeFields
+            formData={backofficeData}
+            onChange={recordStatus === "approved" ? () => {} : handleBackofficeChange}
+            onSelectChange={recordStatus === "approved" ? () => () => {} : handleSelectChange}
+            onCheckboxChange={recordStatus === "approved" ? () => () => {} : handleCheckboxChange}
+            errors={errors}
+          />
+          <div className="border-t border-border" />
+          {recordId && <AuditTrail supplierId={recordId} />}
         </div>
 
-        {recordStatus !== "approved" && recordStatus !== "rejected" && (
+        {/* Action buttons: approved → only reopen; rejected → no actions; otherwise → full set */}
+        {recordStatus === "approved" ? (
+          <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 mt-6" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
+            <div className="flex flex-wrap gap-3 justify-end">
+              <Button variant="outline" className="gap-2" disabled={submitting} onClick={() => handleStatusChange("under_review")}>
+                <RotateCcw className="h-4 w-4" />
+                Reabrir para revisão
+              </Button>
+            </div>
+          </div>
+        ) : recordStatus !== "rejected" ? (
           <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 mt-6 space-y-4" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
             <div className="flex flex-wrap gap-3 justify-end">
               <Button variant="outline" className="gap-2" disabled={submitting} onClick={() => handleStatusChange("under_review")}>
@@ -584,7 +643,7 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
               </Button>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     );
   }

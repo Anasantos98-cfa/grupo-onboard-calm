@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      supplier_audit_logs: {
+        Row: {
+          action: string
+          id: string
+          metadata: Json | null
+          new_status: string | null
+          performed_by: string | null
+          previous_status: string | null
+          supplier_id: string
+          timestamp: string
+        }
+        Insert: {
+          action: string
+          id?: string
+          metadata?: Json | null
+          new_status?: string | null
+          performed_by?: string | null
+          previous_status?: string | null
+          supplier_id: string
+          timestamp?: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          metadata?: Json | null
+          new_status?: string | null
+          performed_by?: string | null
+          previous_status?: string | null
+          supplier_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_audit_logs_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           acesso_dados_pessoais: boolean | null
