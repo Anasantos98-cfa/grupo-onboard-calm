@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CheckCircle, Loader2, RotateCcw } from "lucide-react";
+import { CheckCircle, Loader2, RotateCcw, Copy } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import FormField from "@/components/supplier/FormField";
 import FormSelect from "@/components/supplier/FormSelect";
 import FormSection from "@/components/supplier/FormSection";
