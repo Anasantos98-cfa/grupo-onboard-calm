@@ -99,19 +99,19 @@ const AdminNewSupplier = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome_fornecedor: formData.nome_fornecedor.trim(),
-          email_fornecedor: formData.email_fornecedor.trim(),
-          responsavel_area: formData.responsavel_area.trim(),
-          categoria: formData.categoria,
-          justificacao: formData.justificacao.trim(),
-        }),
+      const token = crypto.randomUUID();
+      const { error } = await supabase.from("suppliers").insert({
+        legal_name: formData.nome_fornecedor.trim(),
+        email: formData.email_fornecedor.trim(),
+        responsavel: formData.responsavel_area.trim(),
+        categoria: formData.categoria,
+        comentarios: formData.justificacao.trim(),
+        token,
+        status: "waiting_supplier",
       });
 
-      if (!response.ok) throw new Error("Webhook error");
+      if (error) throw error;
+      setSupplierToken(token);
       setSubmitted(true);
     } catch (err) {
       console.error(err);
@@ -125,6 +125,7 @@ const AdminNewSupplier = () => {
     setFormData(initialFormData);
     setErrors({});
     setSubmitted(false);
+    setSupplierToken("");
   };
 
   if (submitted) {
