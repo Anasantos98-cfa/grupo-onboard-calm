@@ -128,6 +128,13 @@ const AdminNewSupplier = () => {
     setSupplierToken("");
   };
 
+  const supplierLink = `${window.location.origin}/supplier/${supplierToken}`;
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(supplierLink);
+    toast.success("Link copiado!");
+  };
+
   if (submitted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
@@ -142,6 +149,15 @@ const AdminNewSupplier = () => {
             <p className="text-muted-foreground leading-relaxed text-sm">
               O pedido foi enviado e será processado pela equipa responsável.
             </p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Link do fornecedor:</p>
+            <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+              <code className="text-xs text-foreground break-all flex-1 text-left">{supplierLink}</code>
+              <Button variant="ghost" size="sm" onClick={copyLink} className="shrink-0">
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
           <Button onClick={handleReset} variant="outline" className="gap-2">
             <RotateCcw className="h-4 w-4" />
