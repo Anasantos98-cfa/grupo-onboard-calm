@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CheckCircle, Loader2, RotateCcw } from "lucide-react";
+import { CheckCircle, Loader2, RotateCcw, Copy } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import FormField from "@/components/supplier/FormField";
 import FormSelect from "@/components/supplier/FormSelect";
 import FormSection from "@/components/supplier/FormSection";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const WEBHOOK_URL = "https://codeforall.app.n8n.cloud/webhook/fornecedor-pedido";
+
 
 const categorias = [
   { value: "Accounting & Adm", label: "Accounting & Adm" },
@@ -62,6 +63,7 @@ const AdminNewSupplier = () => {
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [supplierToken, setSupplierToken] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -97,19 +99,19 @@ const AdminNewSupplier = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome_fornecedor: formData.nome_fornecedor.trim(),
-          email_fornecedor: formData.email_fornecedor.trim(),
-          responsavel_area: formData.responsavel_area.trim(),
-          categoria: formData.categoria,
-          justificacao: formData.justificacao.trim(),
-        }),
+      const token = crypto.randomUUID();
+      const { error } = await supabase.from("suppliers").insert({
+        legal_name: formData.nome_fornecedor.trim(),
+        email: formData.email_fornecedor.trim(),
+        responsavel: formData.responsavel_area.trim(),
+        categoria: formData.categoria,
+        comentarios: formData.justificacao.trim(),
+        token,
+        status: "waiting_supplier",
       });
 
-      if (!response.ok) throw new Error("Webhook error");
+      if (error) throw error;
+      setSupplierToken(token);
       setSubmitted(true);
     } catch (err) {
       console.error(err);
@@ -123,6 +125,14 @@ const AdminNewSupplier = () => {
     setFormData(initialFormData);
     setErrors({});
     setSubmitted(false);
+    setSupplierToken("");
+  };
+
+  const supplierLink = `${window.location.origin}/supplier/${supplierToken}`;
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(supplierLink);
+    toast.success("Link copiado!");
   };
 
   if (submitted) {
@@ -139,6 +149,15 @@ const AdminNewSupplier = () => {
             <p className="text-muted-foreground leading-relaxed text-sm">
               O pedido foi enviado e será processado pela equipa responsável.
             </p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Link do fornecedor:</p>
+            <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+              <code className="text-xs text-foreground break-all flex-1 text-left">{supplierLink}</code>
+              <Button variant="ghost" size="sm" onClick={copyLink} className="shrink-0">
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
           <Button onClick={handleReset} variant="outline" className="gap-2">
             <RotateCcw className="h-4 w-4" />
