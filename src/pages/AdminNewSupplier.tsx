@@ -9,7 +9,7 @@ import FormSection from "@/components/supplier/FormSection";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const WEBHOOK_URL = "https://codeforall.app.n8n.cloud/webhook/fornecedor-pedido";
+
 
 const categorias = [
   { value: "Accounting & Adm", label: "Accounting & Adm" },
