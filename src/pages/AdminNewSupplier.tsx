@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CheckCircle, Loader2, RotateCcw, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import FormField from "@/components/supplier/FormField";
+import { Input } from "@/components/ui/input";
 import FormSelect from "@/components/supplier/FormSelect";
 import FormSection from "@/components/supplier/FormSection";
 import { Label } from "@/components/ui/label";
@@ -135,34 +136,67 @@ const AdminNewSupplier = () => {
     toast.success("Link copiado!");
   };
 
+  const emailTemplate = `Subject: Supplier Information Request
+
+Olá,
+
+Para iniciarmos o processo de onboarding pedimos que preencha o seguinte formulário:
+
+${supplierLink}
+
+Caso tenha alguma dúvida, por favor responda a este email.
+
+Obrigado.`;
+
+  const copyEmail = () => {
+    navigator.clipboard.writeText(emailTemplate);
+    toast.success("Email copiado!");
+  };
+
   if (submitted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
-        <div className="form-card max-w-md w-full text-center space-y-6">
-          <div className="flex justify-center">
-            <div className="h-14 w-14 rounded-full bg-success/10 flex items-center justify-center">
-              <CheckCircle className="h-7 w-7 text-success" />
+        <div className="form-card max-w-lg w-full space-y-6">
+          <div className="text-center space-y-2">
+            <div className="flex justify-center">
+              <div className="h-14 w-14 rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle className="h-7 w-7 text-success" />
+              </div>
             </div>
-          </div>
-          <div className="space-y-2">
             <h2 className="text-xl font-semibold text-foreground">Pedido criado com sucesso</h2>
             <p className="text-muted-foreground leading-relaxed text-sm">
               O pedido foi enviado e será processado pela equipa responsável.
             </p>
           </div>
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Link do fornecedor:</p>
-            <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-              <code className="text-xs text-foreground break-all flex-1 text-left">{supplierLink}</code>
-              <Button variant="ghost" size="sm" onClick={copyLink} className="shrink-0">
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Link do fornecedor</Label>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={supplierLink} className="text-xs font-mono" />
+              <Button variant="outline" size="sm" onClick={copyLink} className="shrink-0 gap-1.5">
                 <Copy className="h-3.5 w-3.5" />
+                Copy link
               </Button>
             </div>
           </div>
-          <Button onClick={handleReset} variant="outline" className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Criar novo pedido
-          </Button>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Email template</Label>
+            <Textarea readOnly value={emailTemplate} rows={10} className="text-xs font-mono resize-none" />
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={copyEmail} className="gap-1.5">
+                <Copy className="h-3.5 w-3.5" />
+                Copy email
+              </Button>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <Button onClick={handleReset} variant="outline" className="gap-2">
+              <RotateCcw className="h-4 w-4" />
+              Criar novo pedido
+            </Button>
+          </div>
         </div>
       </div>
     );
