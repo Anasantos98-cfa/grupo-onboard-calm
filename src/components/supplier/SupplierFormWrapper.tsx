@@ -578,33 +578,81 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
       under_review: "Em revisão",
     };
 
+    const statusIcon: Record<string, React.ReactNode> = {
+      waiting_supplier: <Clock className="h-5 w-5" />,
+      submitted: <CheckCircle className="h-5 w-5" />,
+      approved: <ShieldCheck className="h-5 w-5" />,
+      rejected: <XCircle className="h-5 w-5" />,
+      under_review: <RotateCcw className="h-5 w-5" />,
+    };
+
+    const statusColorClass: Record<string, string> = {
+      waiting_supplier: "bg-orange-50 border-orange-200 text-orange-700",
+      submitted: "bg-blue-50 border-blue-200 text-blue-700",
+      approved: "bg-emerald-50 border-emerald-200 text-emerald-700",
+      rejected: "bg-red-50 border-red-200 text-red-700",
+      under_review: "bg-amber-50 border-amber-200 text-amber-700",
+      draft: "bg-muted border-border text-muted-foreground",
+    };
+
     return (
-      <div className="w-full max-w-[640px] mx-auto animate-fade-in">
-        <div className="mb-8 space-y-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Revisão de Fornecedor</h1>
-            {recordStatus && (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                recordStatus === "approved" ? "bg-success/10 text-success" :
-                recordStatus === "rejected" ? "bg-destructive/10 text-destructive" :
-                recordStatus === "submitted" ? "bg-blue-100 text-blue-700" :
-                recordStatus === "waiting_supplier" ? "bg-orange-100 text-orange-700" :
-                "bg-muted text-muted-foreground"
-              }`}>
-                {statusLabel[recordStatus] || recordStatus}
-              </span>
-            )}
-          </div>
+      <div className="w-full max-w-[640px] mx-auto animate-fade-in space-y-6">
+        {/* Page Header */}
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Revisão de Fornecedor</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Reveja a informação submetida e preencha os campos de backoffice.
           </p>
         </div>
 
-        <div className="form-card space-y-10">
+        {/* Status Banner */}
+        {recordStatus && (
+          <div className={`flex items-center gap-3 rounded-xl border px-5 py-4 ${statusColorClass[recordStatus] || statusColorClass.draft}`}>
+            {statusIcon[recordStatus] || <Clock className="h-5 w-5" />}
+            <div>
+              <p className="text-sm font-semibold">{statusLabel[recordStatus] || recordStatus}</p>
+              <p className="text-xs opacity-75">
+                {recordStatus === "waiting_supplier" && "O fornecedor ainda não preencheu os dados."}
+                {recordStatus === "submitted" && "O fornecedor submeteu os dados. Pronto para revisão."}
+                {recordStatus === "approved" && "Este fornecedor foi aprovado."}
+                {recordStatus === "rejected" && "Este fornecedor foi rejeitado."}
+                {recordStatus === "under_review" && "Em processo de revisão interna."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Section 1: Internal Request */}
+        <div className="form-card space-y-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-muted-foreground text-xs font-bold">1</span>
+            <h2 className="text-sm font-semibold text-foreground">Pedido Interno</h2>
+          </div>
           <AdminCreateFields formData={adminData} onChange={() => {}} onSelectChange={() => () => {}} errors={{}} readOnly />
-          <div className="border-t border-border" />
-          <SupplierReadOnly data={supplierData} />
-          <div className="border-t border-border" />
+        </div>
+
+        {/* Section 2: Supplier Submitted Information */}
+        <div className="form-card space-y-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-muted-foreground text-xs font-bold">2</span>
+            <h2 className="text-sm font-semibold text-foreground">Informação do Fornecedor</h2>
+          </div>
+          {recordStatus === "waiting_supplier" ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+              <Clock className="h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">O fornecedor ainda não submeteu os dados.</p>
+            </div>
+          ) : (
+            <SupplierReadOnly data={supplierData} />
+          )}
+        </div>
+
+        {/* Section 3: Backoffice Review & Approval */}
+        <div className="form-card space-y-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-muted-foreground text-xs font-bold">3</span>
+            <h2 className="text-sm font-semibold text-foreground">Backoffice & Aprovação</h2>
+          </div>
           <BackofficeFields
             formData={backofficeData}
             onChange={recordStatus === "approved" ? () => {} : handleBackofficeChange}
@@ -616,9 +664,9 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
           {recordId && <AuditTrail supplierId={recordId} />}
         </div>
 
-        {/* Action buttons: approved → only reopen; rejected → no actions; otherwise → full set */}
+        {/* Action buttons */}
         {recordStatus === "approved" ? (
-          <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 mt-6" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
+          <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
             <div className="flex flex-wrap gap-3 justify-end">
               <Button variant="outline" className="gap-2" disabled={submitting} onClick={() => handleStatusChange("under_review")}>
                 <RotateCcw className="h-4 w-4" />
@@ -627,7 +675,7 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
             </div>
           </div>
         ) : recordStatus !== "rejected" ? (
-          <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 mt-6 space-y-4" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
+          <div className="sticky bottom-0 bg-card border border-border rounded-xl p-6 space-y-4" style={{ boxShadow: "0 -4px 20px hsl(var(--foreground) / 0.06)" }}>
             <div className="flex flex-wrap gap-3 justify-end">
               <Button variant="outline" className="gap-2" disabled={submitting} onClick={() => handleStatusChange("under_review")}>
                 <Clock className="h-4 w-4" />
