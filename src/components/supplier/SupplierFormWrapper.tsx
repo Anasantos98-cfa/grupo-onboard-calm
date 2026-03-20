@@ -144,7 +144,7 @@ const SupplierFormWrapper = ({ mode, token, supplierId }: SupplierFormWrapperPro
         if (mode === "supplier" && token) {
           result = await (supabase.from("suppliers").select("*") as any).eq("token", token).limit(1).maybeSingle();
         } else if (mode === "admin-review" && supplierId) {
-          result = await supabase.from("suppliers").select("*").eq("id", supplierId).single();
+          result = await (supabase.from("suppliers").select("*") as any).eq("id", supplierId).maybeSingle();
         } else {
           setLoading(false);
           return;
